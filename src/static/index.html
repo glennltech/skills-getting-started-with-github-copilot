@@ -16,8 +16,24 @@
       <section id="activities-container">
         <h3>Available Activities</h3>
         <div id="activities-list">
-          <!-- Activities will be loaded here -->
-          <p>Loading activities...</p>
+          <!-- Activities will be loaded here by app.js -->
+          <!-- Example/template for each activity card (JS should clone/populate this or render equivalent) -->
+          <div class="activity-card" data-activity-name="">
+            <h4 class="activity-title">Activity Name</h4>
+            <p class="activity-desc">Short description goes here.</p>
+            <p class="activity-schedule"><strong>Schedule:</strong> Example schedule</p>
+            <p class="activity-capacity"><strong>Max participants:</strong> 20</p>
+
+            <div class="participants-section">
+              <h5>Participants</h5>
+              <ul class="participants-list">
+                <!-- JS should insert items like:
+                     <li><span class="participant-badge">alice@mergington.edu</span></li>
+                     <li><span class="participant-badge">bob@mergington.edu</span></li>
+                -->
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
