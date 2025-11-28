@@ -158,8 +158,8 @@ footer {
 }
 
 .participants-list {
-  list-style: disc;
-  margin: 0 0 0 18px;
+  list-style: none; /* hide default bullets */
+  margin: 0;
   padding: 0;
   max-height: 120px;
   overflow: auto;
@@ -172,6 +172,20 @@ footer {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Delete (unregister) button next to participant */
+.participant-delete {
+  background: transparent;
+  border: none;
+  color: #c62828;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.participant-delete:hover {
+  background: rgba(198, 40, 40, 0.08);
 }
 
 /* Small pill style for participant items to make them look neat */

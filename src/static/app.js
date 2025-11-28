@@ -1,90 +1,3 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const activitiesList = document.getElementById("activities-list");
-  const activitySelect = document.getElementById("activity");
-  const signupForm = document.getElementById("signup-form");
-  const messageDiv = document.getElementById("message");
-
-  // Function to fetch activities from API
-  async function fetchActivities() {
-    try {
-      const response = await fetch("/activities");
-      const activities = await response.json();
-
-      // Clear loading message
-      activitiesList.innerHTML = "";
-
-      // Populate activities list
-      Object.entries(activities).forEach(([name, details]) => {
-        const activityCard = document.createElement("div");
-        activityCard.className = "activity-card";
-
-        const spotsLeft = details.max_participants - details.participants.length;
-
-        activityCard.innerHTML = `
-          <h4>${name}</h4>
-          <p>${details.description}</p>
-          <p><strong>Schedule:</strong> ${details.schedule}</p>
-          <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
-        `;
-
-        activitiesList.appendChild(activityCard);
-
-        // Add option to select dropdown
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        activitySelect.appendChild(option);
-      });
-    } catch (error) {
-      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
-      console.error("Error fetching activities:", error);
-    }
-  }
-
-  // Handle form submission
-  signupForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    const email = document.getElementById("email").value;
-    const activity = document.getElementById("activity").value;
-
-    try {
-      const response = await fetch(
-        `/activities/${encodeURIComponent(activity)}/signup?email=${encodeURIComponent(email)}`,
-        {
-          method: "POST",
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
-        messageDiv.textContent = result.message;
-        messageDiv.className = "success";
-        signupForm.reset();
-      } else {
-        messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
-      }
-
-      messageDiv.classList.remove("hidden");
-
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
-    } catch (error) {
-      messageDiv.textContent = "Failed to sign up. Please try again.";
-      messageDiv.className = "error";
-      messageDiv.classList.remove("hidden");
-      console.error("Error signing up:", error);
-    }
-  });
-
-  // Initialize app
-  fetchActivities();
-});
-
 // Fetch activities, render cards with participants, populate select, and handle signup.
 
 const apiBase = '/activities';
@@ -103,9 +16,32 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-function createParticipantItem(email) {
+function createParticipantItem(email, activityName) {
   const badge = el('span', { class: 'participant-badge' }, email);
-  return el('li', {}, badge);
+
+  const del = el('button', { class: 'participant-delete', title: 'Unregister participant', type: 'button', dataset: { email } }, '✖');
+
+  const li = el('li', {}, badge, del);
+
+  // handle delete click
+  del.addEventListener('click', async (e) => {
+    e.preventDefault();
+    // optimistic UI: remove item after successful response
+    try {
+      await unregisterParticipant(activityName, email);
+      li.remove();
+      // If list becomes empty, show placeholder
+      const ul = document.querySelector(`[data-activity-name="${CSS.escape(activityName)}"] .participants-list`);
+      if (ul && ul.children.length === 0) {
+        ul.appendChild(el('li', {}, el('span', { class: 'participant-badge' }, 'No participants yet')));
+      }
+      setMessage(`Unregistered ${email} from ${activityName}`, 'success');
+    } catch (err) {
+      setMessage(err.message || 'Failed to unregister participant', 'error');
+    }
+  });
+
+  return li;
 }
 
 function createActivityCard(name, info) {
@@ -121,7 +57,7 @@ function createActivityCard(name, info) {
     el('ul', { class: 'participants-list' }, 
       // populate participant items
       ...(info.participants && info.participants.length
-        ? info.participants.map(createParticipantItem)
+        ? info.participants.map(email => createParticipantItem(email, name))
         : [el('li', {}, el('span', { class: 'participant-badge' }, 'No participants yet'))])
     )
   );
@@ -170,7 +106,17 @@ function appendParticipantToCard(activityName, email) {
   if (ul.children.length === 1 && ul.children[0].textContent.trim() === 'No participants yet') {
     ul.innerHTML = '';
   }
-  ul.appendChild(createParticipantItem(email));
+  ul.appendChild(createParticipantItem(email, activityName));
+}
+
+async function unregisterParticipant(activityName, email) {
+  const url = `${apiBase}/${encodeURIComponent(activityName)}/participants?email=${encodeURIComponent(email)}`;
+  const res = await fetch(url, { method: 'DELETE' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.detail || 'Failed to unregister');
+  }
+  return res.json();
 }
 
 async function handleSignup(e) {
@@ -194,8 +140,12 @@ async function handleSignup(e) {
     }
     const body = await res.json();
     setMessage(body.message || 'Signed up successfully', 'success');
-    appendParticipantToCard(activity, email);
-    // optionally clear email field
+    // Refresh activities from server to ensure UI matches backend
+    await loadActivities();
+    // restore selection to the activity user just signed up for
+    const activitySelect = document.getElementById('activity');
+    if (activitySelect) activitySelect.value = activity;
+    // clear email input
     emailInput.value = '';
   } catch (err) {
     setMessage(err.message || 'Error during signup', 'error');
